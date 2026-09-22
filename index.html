@@ -1,1 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Library Foot Traffic Monitoring System</title>
+  <!-- Tailwind CSS via CDN for modern UI styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col font-sans text-slate-800">
 
+  <!-- Navigation / Header Bar -->
+  <header class="bg-indigo-700 text-white shadow-md p-4">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold tracking-wide">Library Foot Traffic</h1>
+        <p class="text-indigo-200 text-xs">Daily Entry Monitoring (Philippine Standard Time)</p>
+      </div>
+      <div class="text-right">
+        <div id="clock-date" class="text-sm font-medium">--</div>
+        <div id="clock-time" class="text-xl font-bold tracking-wider text-indigo-100">--:--:--</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="max-w-6xl mx-auto w-full p-4 md:p-6 flex-grow grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <!-- Scanner Section (Left Column) -->
+    <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-700 mb-2">RFID Scanner</h2>
+        <p class="text-xs text-slate-500 mb-6">The USB reader automatically keeps focus here for seamless continuous scanning.</p>
+
+        <form id="scanForm" onsubmit="event.preventDefault(); processScan();">
+          <label for="rfidInput" class="block text-xs font-semibold uppercase text-slate-400 mb-2">RFID Card Code</label>
+          <input 
+            type="text" 
+            id="rfidInput" 
+            autocomplete="off"
+            placeholder="Tap card here..." 
+            class="w-full text-center text-lg font-mono tracking-widest p-3 border-2 border-indigo-400 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 transition-all mb-4"
+            autofocus
+          />
+          <button 
+            type="submit" 
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition-colors shadow-sm"
+          >
+            Submit Manually
+          </button>
+        </form>
+      </div>
+
+      <!-- Real-time Reader Status Indicator -->
+      <div id="statusBox" class="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
+        <span class="inline-block w-3 h-3 bg-emerald-500 rounded-full animate-pulse mr-2"></span>
+        <span class="text-xs font-medium text-slate-600">Scanner ready for tap</span>
+      </div>
+    </section>
+
+    <!-- Scan Results & Live Logs (Right 2 Columns) -->
+    <section class="md:col-span-2 flex flex-col gap-6">
+
+      <!-- Active User Display Card -->
+      <div id="resultCard" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hidden transition-all">
+        <div class="flex items-center justify-between border-b pb-3 mb-4">
+          <span id="badgeType" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-700">--</span>
+          <span id="scanTime" class="text-xs font-mono text-slate-400">--:--:--</span>
+        </div>
+        <h3 id="userName" class="text-2xl font-bold text-slate-800">--</h3>
+        <p id="userDept" class="text-sm text-slate-500 mt-1">--</p>
+      </div>
+
+      <!-- Live Session Logs Table -->
+      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-grow">
+        <h2 class="text-lg font-semibold text-slate-700 mb-4">Recent Entries (Current Session)</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-600">
+            <thead class="bg-slate-50 text-xs font-semibold uppercase text-slate-400 border-b">
+              <tr>
+                <th class="p-3">Time</th>
+                <th class="p-3">Name</th>
+                <th class="p-3">User Type</th>
+                <th class="p-3">Department / Grade</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="4" class="p-4 text-center text-slate-400 text-xs">No scan records yet for this session.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // GOOGLE APPS SCRIPT CONFIGURATION
+    // Replace this string with your published Web App URL
+    // ==========================================
+    const APPS_SCRIPT_URL = "YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+
+    const rfidInput = document.getElementById('rfidInput');
+    const logsTableBody = document.getElementById('logsTableBody');
+    const resultCard = document.getElementById('resultCard');
+    const statusBox = document.getElementById('statusBox');
+
+    // Automatically re-focus the input box whenever user clicks on the page
+    document.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'BUTTON') {
+        rfidInput.focus();
+      }
+    });
+
+    // Real-time Clock running on Asia/Manila (PST) timezone
+    function updateClock() {
+      const now = new Date();
+      const timeOptions = { timeZone: 'Asia/Manila', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      const dateOptions = { timeZone: 'Asia/Manila', weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+
+      document.getElementById('clock-time').textContent = now.toLocaleTimeString('en-US', timeOptions);
+      document.getElementById('clock-date').textContent = now.toLocaleDateString('en-US', dateOptions);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Send scanned RFID value to Apps Script backend
+    async function processScan() {
+      const rfidValue = rfidInput.value.trim();
+      if (!rfidValue) return;
+
+      // Clear input immediately so it is ready for the next card
+      rfidInput.value = '';
+      
+      setStatus("Sending data...", "loading");
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: "scan", rfid: rfidValue })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          showUserCard(result.data);
+          addLogRow(result.data);
+          setStatus("Check-in successful!", "success");
+        } else {
+          showErrorCard(result.message, rfidValue);
+          setStatus(result.message, "error");
+        }
+      } catch (error) {
+        console.error(error);
+        setStatus("Connection error with database backend", "error");
+      } finally {
+        rfidInput.focus();
+      }
+    }
+
+    // Display successfully scanned user profile
+    function showUserCard(data) {
+      resultCard.classList.remove('hidden', 'border-red-300', 'bg-red-50', 'border-slate-200');
+      resultCard.classList.add('border-emerald-300', 'bg-emerald-50/30');
+
+      document.getElementById('badgeType').textContent = data.userType;
+      document.getElementById('badgeType').className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800";
+      document.getElementById('scanTime').textContent = data.time;
+      document.getElementById('userName').textContent = data.name;
+      document.getElementById('userName').className = "text-2xl font-bold text-slate-800";
+      document.getElementById('userDept').textContent = data.department;
+    }
+
+    // Display card error details when an unknown RFID card is scanned
+    function showErrorCard(message, rfid) {
+      resultCard.classList.remove('hidden', 'border-emerald-300', 'bg-emerald-50/30', 'border-slate-200');
+      resultCard.classList.add('border-red-300', 'bg-red-50');
+
+      document.getElementById('badgeType').textContent = "UNREGISTERED";
+      document.getElementById('badgeType').className = "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-200 text-red-800";
+      document.getElementById('scanTime').textContent = new Date().toLocaleTimeString();
+      document.getElementById('userName').textContent = "Card Not Found";
+      document.getElementById('userName').className = "text-2xl font-bold text-red-600";
+      document.getElementById('userDept').textContent = `Scanned RFID ID: ${rfid}`;
+    }
+
+    // Insert new entry at the top of the session log table
+    function addLogRow(data) {
+      if (logsTableBody.children[0]?.children[0]?.getAttribute('colspan')) {
+        logsTableBody.innerHTML = '';
+      }
+
+      const row = document.createElement('tr');
+      row.className = "hover:bg-slate-50 transition-colors";
+      row.innerHTML = `
+        <td class="p-3 font-mono text-xs text-slate-500">${data.time}</td>
+        <td class="p-3 font-medium text-slate-800">${data.name}</td>
+        <td class="p-3"><span class="px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700">${data.userType}</span></td>
+        <td class="p-3 text-slate-600">${data.department}</td>
+      `;
+
+      logsTableBody.insertBefore(row, logsTableBody.firstChild);
+    }
+
+    // Update bottom status box UI
+    function setStatus(msg, type) {
+      let colorClass = "bg-slate-50 border-slate-200 text-slate-600";
+      let dotClass = "bg-emerald-500";
+
+      if (type === "loading") {
+        dotClass = "bg-amber-500 animate-ping";
+      } else if (type === "error") {
+        dotClass = "bg-red-500";
+        colorClass = "bg-red-50 border-red-200 text-red-700";
+      } else if (type === "success") {
+        dotClass = "bg-emerald-500";
+      }
+
+      statusBox.className = `mt-6 p-4 rounded-xl border text-center transition-all ${colorClass}`;
+      statusBox.innerHTML = `
+        <span class="inline-block w-3 h-3 ${dotClass} rounded-full mr-2"></span>
+        <span class="text-xs font-medium">${msg}</span>
+      `;
+    }
+  </script>
+</body>
+</html>
