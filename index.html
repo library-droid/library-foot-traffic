@@ -3,118 +3,195 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Library Foot Traffic Scanner</title>
+  <title>Library Foot Traffic</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-    .scanner-card { background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 500px; padding: 30px; text-align: center; }
-    h1 { color: #1a73e8; margin-bottom: 5px; font-size: 26px; }
-    p.subtitle { color: #5f6368; font-size: 14px; margin-bottom: 25px; }
-    .input-box { width: 100%; padding: 14px; font-size: 18px; text-align: center; border: 2px solid #1a73e8; border-radius: 8px; outline: none; margin-bottom: 20px; }
-    .result-card { display: none; margin-top: 15px; padding: 20px; border-radius: 12px; background: #e8f0fe; border-left: 6px solid #1a73e8; text-align: left; }
-    .result-card.error { background: #fce8e6; border-left-color: #d93025; }
-    .result-card h2 { font-size: 20px; color: #202124; margin-bottom: 8px; }
-    .result-card p { font-size: 15px; color: #3c4043; margin: 4px 0; }
-    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; background: #1a73e8; color: white; margin-top: 8px; }
-    .status-badge.unknown { background: #e37400; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #f3f4f6; color: #1f2937; min-height: 100vh; display: flex; flex-direction: column; }
+    
+    header { background-color: #4f46e5; color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 20px; font-weight: 700; }
+    header p { font-size: 12px; opacity: 0.8; }
+    .clock-box { text-align: right; }
+    .clock-date { font-size: 12px; opacity: 0.9; }
+    .clock-time { font-size: 20px; font-weight: 700; }
+
+    main { display: grid; grid-template-columns: 320px 1fr; gap: 24px; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; flex: 1; }
+
+    .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    
+    .scanner-section h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #111827; }
+    .scanner-section p { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+    .input-label { font-size: 11px; font-weight: 700; color: #6b7280; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; display: block; }
+    
+    .scan-input { width: 100%; padding: 12px 16px; border: 2px solid #6366f1; border-radius: 8px; font-size: 16px; text-align: center; outline: none; margin-bottom: 12px; }
+    .scan-input:focus { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); }
+    
+    .btn-submit { width: 100%; background-color: #4f46e5; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+    .btn-submit:hover { background-color: #4338ca; }
+
+    .result-display { display: none; margin-bottom: 24px; border-radius: 10px; padding: 20px; border-left: 6px solid #10b981; background: #ecfdf5; }
+    .result-display.unregistered { border-left-color: #ef4444; background: #fef2f2; }
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .badge { font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; background: #10b981; color: white; }
+    .badge.unregistered { background: #ef4444; }
+    .scan-time { font-size: 12px; color: #6b7280; }
+    .person-name { font-size: 22px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .person-details { font-size: 14px; color: #4b5563; }
+
+    .table-container h3 { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #6b7280; padding: 12px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+    td { font-size: 14px; padding: 12px; border-bottom: 1px solid #e5e7eb; color: #1f2937; }
+    .empty-row { text-align: center; color: #9ca3af; padding: 32px; font-size: 14px; }
   </style>
 </head>
 <body>
 
-  <div class="scanner-card">
-    <h1>📚 Library Scanner</h1>
-    <p class="subtitle">Please tap your ID card on the scanner</p>
-
-    <!-- Scanner input -->
-    <input type="text" id="scannerInput" class="input-box" placeholder="Ready to scan..." autofocus autocomplete="off">
-
-    <div id="resultCard" class="result-card">
-      <h2 id="resName">--</h2>
-      <p><strong>User Type:</strong> <span id="resUserType">--</span></p>
-      <p><strong>Department/Grade:</strong> <span id="resDept">--</span></p>
-      <p><strong>Time:</strong> <span id="resTime">--</span></p>
-      <span id="resBadge" class="status-badge">LOGGED</span>
+  <header>
+    <div>
+      <h1>Library Foot Traffic</h1>
+      <p>Daily Entry Monitoring (Philippine Standard Time)</p>
     </div>
-  </div>
+    <div class="clock-box">
+      <div id="clockDate" class="clock-date">--</div>
+      <div id="clockTime" class="clock-time">--:--:--</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="card scanner-section">
+      <h2>RFID Scanner</h2>
+      <p>The USB reader automatically keeps focus here for seamless continuous scanning.</p>
+      
+      <span class="input-label">RFID Card Code</span>
+      <input type="text" id="rfidInput" class="scan-input" placeholder="Tap card here..." autofocus autocomplete="off">
+      <button id="btnSubmit" class="btn-submit">Submit Manually</button>
+    </div>
+
+    <div class="right-content">
+      <div id="resultBox" class="card result-display">
+        <div class="result-header">
+          <span id="resBadge" class="badge">LOGGED</span>
+          <span id="resTime" class="scan-time">--:--:--</span>
+        </div>
+        <div id="resName" class="person-name">--</div>
+        <div id="resDetails" class="person-details">--</div>
+      </div>
+
+      <div class="card table-container">
+        <h3>Recent Entries (Current Session)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>TIME</th>
+              <th>NAME</th>
+              <th>USER TYPE</th>
+              <th>DEPARTMENT / GRADE</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <tr id="emptyRow"><td colspan="4" class="empty-row">No scan records yet for this session.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
 
   <script>
-    // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE:
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwajlwbbMBHBFWVzDP6-MzdA2Gf3SHvYFbU-dV6O7ZOldebIpsbH5W_o9XskeCPVUZfBA/exec";
+    // REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL:
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw-hucbEuxyIyPiOXshKvWk1KlgNbgfVfoCOw1TtxtDR_ois8HxtD6Ot3lIl9KvYMJM4g/exec";
 
-    const input = document.getElementById('scannerInput');
-    const resultCard = document.getElementById('resultCard');
-    const resName = document.getElementById('resName');
-    const resUserType = document.getElementById('resUserType');
-    const resDept = document.getElementById('resDept');
-    const resTime = document.getElementById('resTime');
+    const input = document.getElementById('rfidInput');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const resultBox = document.getElementById('resultBox');
     const resBadge = document.getElementById('resBadge');
+    const resTime = document.getElementById('resTime');
+    const resName = document.getElementById('resName');
+    const resDetails = document.getElementById('resDetails');
+    const logsTableBody = document.getElementById('logsTableBody');
+    const emptyRow = document.getElementById('emptyRow');
 
-    // Keep input field focused
-    document.addEventListener('click', () => input.focus());
-
-    input.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        const idVal = input.value.trim();
-        if (idVal) {
-          sendScan(idVal);
-        }
-        input.value = '';
-      }
+    // Auto-focus input
+    document.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'BUTTON') input.focus();
     });
 
-    async function sendScan(scannedId) {
+    // Clock
+    function updateClock() {
+      const now = new Date();
+      const optionsDate = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' };
+      const optionsTime = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: 'Asia/Manila' };
+      document.getElementById('clockDate').textContent = now.toLocaleDateString('en-US', optionsDate);
+      document.getElementById('clockTime').textContent = now.toLocaleTimeString('en-US', optionsTime);
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Scan handling
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleScan();
+    });
+    btnSubmit.addEventListener('click', handleScan);
+
+    async function handleScan() {
+      const val = input.value.trim();
+      if (!val) return;
+      input.value = '';
+
       try {
-        // Send request as GET parameter to bypass CORS redirect restrictions
-        const requestUrl = WEB_APP_URL + "?id=" + encodeURIComponent(scannedId);
-        const response = await fetch(requestUrl);
+        const reqUrl = WEB_APP_URL + "?id=" + encodeURIComponent(val);
+        const response = await fetch(reqUrl);
         const res = await response.json();
 
         if (res.status === 'success') {
-          showResult(res.data);
+          showResult(res.data, res.found);
+          addLogRow(res.data);
         } else {
-          showError("Error processing scan");
+          showError("System Error: " + res.message);
         }
       } catch (err) {
-        showError("Network Error / Check API Deployment");
+        showError("Network Error - Check Web App Deployment");
       }
     }
 
-    function showResult(data) {
-      resultCard.className = 'result-card';
-      resultCard.style.display = 'block';
-      
-      resName.textContent = data.name;
-      resUserType.textContent = data.userType;
-      resDept.textContent = data.deptGrade;
-      resTime.textContent = data.time;
-
-      if (data.found) {
-        resBadge.className = 'status-badge';
-        resBadge.textContent = 'SUCCESSFULLY LOGGED';
+    function showResult(data, found) {
+      resultBox.style.display = 'block';
+      if (found) {
+        resultBox.className = 'card result-display';
+        resBadge.className = 'badge';
+        resBadge.textContent = 'LOGGED';
+        resName.textContent = data.name;
+        resDetails.textContent = `${data.userType} • ${data.deptGrade}`;
       } else {
-        resBadge.className = 'status-badge unknown';
-        resBadge.textContent = 'UNKNOWN ID LOGGED';
+        resultBox.className = 'card result-display unregistered';
+        resBadge.className = 'badge unregistered';
+        resBadge.textContent = 'UNREGISTERED';
+        resName.textContent = 'Card Not Found';
+        resDetails.textContent = `Scanned RFID ID: ${data.id}`;
       }
-
-      // Hide card after 4 seconds
-      setTimeout(() => {
-        resultCard.style.display = 'none';
-      }, 4000);
+      resTime.textContent = data.time;
     }
 
     function showError(msg) {
-      resultCard.className = 'result-card error';
-      resultCard.style.display = 'block';
-      resName.textContent = msg;
-      resUserType.textContent = '--';
-      resDept.textContent = '--';
-      resTime.textContent = '--';
-      resBadge.className = 'status-badge';
+      resultBox.style.display = 'block';
+      resultBox.className = 'card result-display unregistered';
+      resBadge.className = 'badge unregistered';
       resBadge.textContent = 'ERROR';
-      
-      setTimeout(() => {
-        resultCard.style.display = 'none';
-      }, 4000);
+      resName.textContent = 'Scan Error';
+      resDetails.textContent = msg;
+      resTime.textContent = new Date().toLocaleTimeString();
+    }
+
+    function addLogRow(data) {
+      if (emptyRow) emptyRow.remove();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${data.time}</td>
+        <td><strong>${data.name}</strong></td>
+        <td>${data.userType}</td>
+        <td>${data.deptGrade}</td>
+      `;
+      logsTableBody.insertBefore(tr, logsTableBody.firstChild);
     }
   </script>
 </body>
