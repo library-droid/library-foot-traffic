@@ -98,8 +98,8 @@
   </main>
 
   <script>
-    // REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL:
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw-hucbEuxyIyPiOXshKvWk1KlgNbgfVfoCOw1TtxtDR_ois8HxtD6Ot3lIl9KvYMJM4g/exec";
+    // GOOGLE APPS SCRIPT WEB APP URL:
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyWikoz-xIzJ1R-WeCnXC6YbDTisrWQkFlAxZA5LW5s0ssXYkZw_p0gX83bjgO0knLFoQ/exec";
 
     const input = document.getElementById('rfidInput');
     const btnSubmit = document.getElementById('btnSubmit');
@@ -111,12 +111,12 @@
     const logsTableBody = document.getElementById('logsTableBody');
     const emptyRow = document.getElementById('emptyRow');
 
-    // Auto-focus input
+    // Auto-focus input continuously
     document.addEventListener('click', (e) => {
       if (e.target.tagName !== 'BUTTON') input.focus();
     });
 
-    // Clock
+    // Real-time Philippine Clock
     function updateClock() {
       const now = new Date();
       const optionsDate = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' };
@@ -127,7 +127,7 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Scan handling
+    // Scan listeners
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') handleScan();
     });
@@ -139,6 +139,7 @@
       input.value = '';
 
       try {
+        // Send request via GET parameter to avoid cross-origin CORS blocks
         const reqUrl = WEB_APP_URL + "?id=" + encodeURIComponent(val);
         const response = await fetch(reqUrl);
         const res = await response.json();
@@ -147,10 +148,10 @@
           showResult(res.data, res.found);
           addLogRow(res.data);
         } else {
-          showError("System Error: " + res.message);
+          showError(res.message || "Unknown error occurred");
         }
       } catch (err) {
-        showError("Network Error - Check Web App Deployment");
+        showError("Network Error - Verify deployment settings");
       }
     }
 
@@ -183,7 +184,7 @@
     }
 
     function addLogRow(data) {
-      if (emptyRow) emptyRow.remove();
+      if (emptyRow && emptyRow.parentNode) emptyRow.remove();
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${data.time}</td>
